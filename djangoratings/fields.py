@@ -1,13 +1,19 @@
-from django.db.models import IntegerField, PositiveIntegerField
-from django.conf import settings
-
-import forms
 import itertools
 from datetime import datetime
 
-from models import Vote, Score
-from default_settings import RATINGS_VOTES_PER_IP
-from exceptions import *
+from django.conf import settings
+from django.db.models import (
+    IntegerField,
+    PositiveIntegerField
+)
+
+from djangoratings import forms
+from djangoratings.models import (
+    Vote,
+    Score
+)
+from djangoratings.default_settings import RATINGS_VOTES_PER_IP
+from djangoratings.exceptions import *
 
 if 'django.contrib.contenttypes' not in settings.INSTALLED_APPS:
     raise ImportError("djangoratings requires django.contrib.contenttypes in your INSTALLED_APPS")
@@ -78,13 +84,13 @@ class RatingManager(object):
         Returns the weighted average rating."""
         if not (self.votes and self.score):
             return 0
-        return float(self.score)/(self.votes+self.field.weight)
+        return float(self.score) / (self.votes + self.field.weight)
 
     def get_opinion_percent(self):
         """get_opinion_percent()
 
         Returns a neutral-based percentage."""
-        return (self.get_percent()+100)/2
+        return (self.get_percent() + 100) / 2
 
     def get_real_rating(self):
         """get_rating()
@@ -92,7 +98,7 @@ class RatingManager(object):
         Returns the unmodified average rating."""
         if not (self.votes and self.score):
             return 0
-        return float(self.score)/self.votes
+        return float(self.score) / self.votes
 
     def get_rating_for_user(self, user, ip_address=None, cookies={}):
         """get_rating_for_user(user, ip_address=None, cookie=None)
@@ -115,9 +121,10 @@ class RatingManager(object):
         use_cookies = (self.field.allow_anonymous and self.field.use_cookies)
         if use_cookies:
             # TODO: move 'vote-%d.%d.%s' to settings or something
-            cookie_name = 'vote-%d.%d.%s' % (kwargs['content_type'].pk, kwargs['object_id'], kwargs['key'][:6],) # -> md5_hexdigest?
+            cookie_name = 'vote-%d.%d.%s' % (
+                kwargs['content_type'].pk, kwargs['object_id'], kwargs['key'][:6],)  # -> md5_hexdigest?
             cookie = cookies.get(cookie_name)
-            if cookie:    
+            if cookie:
                 kwargs['cookie'] = cookie
             else:
                 kwargs['cookie__isnull'] = True
@@ -132,7 +139,7 @@ class RatingManager(object):
         return
 
     def get_iterable_range(self):
-        return range(1, self.field.range) #started from 1, because 0 is equal to delete
+        return range(1, self.field.range)  # started from 1, because 0 is equal to delete
 
     def add(self, score, user, ip_address, cookies={}, commit=True):
         """add(score, user, ip_address)
@@ -174,10 +181,11 @@ class RatingManager(object):
 
         use_cookies = (self.field.allow_anonymous and self.field.use_cookies)
         if use_cookies:
-            defaults['cookie'] = now().strftime('%Y%m%d%H%M%S%f') # -> md5_hexdigest?
+            defaults['cookie'] = now().strftime('%Y%m%d%H%M%S%f')  # -> md5_hexdigest?
             # TODO: move 'vote-%d.%d.%s' to settings or something
-            cookie_name = 'vote-%d.%d.%s' % (kwargs['content_type'].pk, kwargs['object_id'], kwargs['key'][:6],) # -> md5_hexdigest?
-            cookie = cookies.get(cookie_name) # try to get existent cookie value
+            cookie_name = 'vote-%d.%d.%s' % (
+                kwargs['content_type'].pk, kwargs['object_id'], kwargs['key'][:6],)  # -> md5_hexdigest?
+            cookie = cookies.get(cookie_name)  # try to get existent cookie value
             if not cookie:
                 kwargs['cookie__isnull'] = True
             kwargs['cookie'] = cookie
@@ -199,8 +207,9 @@ class RatingManager(object):
             kwargs.update(defaults)
             if use_cookies:
                 # record with specified cookie was not found ...
-                cookie = defaults['cookie'] # ... thus we need to replace old cookie (if presented) with new one
-                kwargs.pop('cookie__isnull', '') # ... and remove 'cookie__isnull' (if presented) from .create()'s **kwargs
+                cookie = defaults['cookie']  # ... thus we need to replace old cookie (if presented) with new one
+                kwargs.pop('cookie__isnull',
+                           '')  # ... and remove 'cookie__isnull' (if presented) from .create()'s **kwargs
             rating, created = Vote.objects.create(**kwargs), True
 
         has_changed = False
@@ -318,7 +327,7 @@ class RatingCreator(object):
     def __get__(self, instance, type=None):
         if instance is None:
             return self.field
-            #raise AttributeError('Can only be accessed via an instance.')
+            # raise AttributeError('Can only be accessed via an instance.')
         return RatingManager(instance, self.field)
 
     def __set__(self, instance, value):
@@ -333,6 +342,7 @@ class RatingField(IntegerField):
     """
     A rating field contributes two columns to the model instead of the standard single column.
     """
+
     def __init__(self, *args, **kwargs):
         if 'choices' in kwargs:
             raise TypeError("%s invalid attribute 'choices'" % (self.__class__.__name__,))
@@ -360,7 +370,7 @@ class RatingField(IntegerField):
             editable=False, default=0, blank=True)
         cls.add_to_class("%s_score" % (self.name,), self.score_field)
 
-        self.key = md5_hexdigest(self.name)
+        self.key = md5_hexdigest(self.name.encode('utf-8'))
 
         field = RatingCreator(self)
 
